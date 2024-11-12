@@ -1,0 +1,100 @@
+---
+title: "gmm"
+author: "Aditya Mahalwal"
+date: "2024-11-10"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(gmm)
+library(tidyverse)
+```
+
+```{r}
+data <- read_csv("data.csv")
+```
+
+```{r}
+data[,5] <- lag(data$Consume)
+```
+
+```{r}
+colnames(data) <- c("Date", "t_bil", "tsx60", "cons_t", "cons_tt")
+```
+
+```{r}
+data[,6] <- data$cons_t/data$cons_tt
+```
+
+```{r}
+colnames(data) <- c("Date", "t_bil", "tsx60", "cons_t", "cons_tt", "change_tt" )
+```
+
+```{r}
+col1 <- c(6,2,3)
+data1 <- data[,col1]
+data1 <- na.omit(data1)
+```
+
+```{r}
+# Calculate simple returns
+data1$tsx60 <- diff(data1$tsx60) / stats::lag(data1$tsx60, -1)
+data1$t_bil <- diff(data1$t_bil) / stats::lag(data1$t_bil, -1)
+```
+
+
+
+```{r}
+# Define the moment condition function
+moments_ccapm <- function(par, data) {
+  # Parameters to estimate
+  beta <- par[1]  # discount factor
+  gamma <- par[2]  # risk aversion coefficient
+
+  # Data
+  consumption_growth <- data[, 1]  # consumption growth
+  R_ft <- data[, 2]  # risk-free rate
+  R_mt <- data[, 3]  # market return
+
+  # Calculate stochastic discount factor M_{t+1} = beta * (consumption_growth)^(-gamma)
+  M_t_plus_1 <- beta * (consumption_growth)^(-gamma)
+
+  # Moment conditions
+  m1 <- M_t_plus_1 *(1 + R_ft) - 1
+  m2 <- M_t_plus_1 * (R_mt - R_ft)
+
+  # Return the two moment conditions
+  return(cbind(m1, m2))
+}
+```
+
+```{r}
+# Initial guesses for beta and gamma
+
+
+initial_guess <- c(0.9, 1)  # slightly different starting values for beta and gamma
+# Test the moments function with initial parameters
+#moments_ccapm(initial_guess, data1)
+
+
+# Run GMM estimation
+gmm_result <- gmm(moments_ccapm, x = data1, t0 = initial_guess)
+
+# View the estimation results
+summary(gmm_result)
+```
+
+
+```{r}
+write.csv(data, "data1.csv", row.names = FALSE)
+write.csv(data1, "data2.csv", row.names = FALSE)
+```
+
+
+
+
+
